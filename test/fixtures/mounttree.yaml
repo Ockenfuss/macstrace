@@ -1,0 +1,62 @@
+description:
+  name: HALO Boilerroom 
+  valid: {from: !!timestamp '2019-05-01 00:00:00+00:00', until: !!timestamp '2019-05-31 23:59:59+00:00'}
+mounttree:
+  framename: EARTH
+  framespec: WGS-84
+  subframes:
+  - axesConvention: NED
+    framename: local horizon
+    position: [lat, lon, height]
+    rotation: [0, 0, 0]
+    subframes:
+    - axesConvention: NED
+      framename: HALO
+      position: [0, 0, 0]
+      rotation: [roll, pitch, yaw]
+      sensors:
+      - name: BAHAMAS
+        provides: [lat, lon, height, roll, pitch, yaw]
+        sensorId: BAHAMAS
+        tofs:
+          method: constant
+          params:
+            dt: -18
+      subframes:
+      - framename: containment
+        position: [-23, 0, 0]
+        rotation: Rx(-2.5deg)*Rz(-90deg)
+        subframes:
+        - framename: VNIR
+          position: [0, 0, -0.3]
+          rotation: Rz(-0.05deg)*Ry(0.2deg)*Rx(-0.03deg)
+          sensors:
+          - name: VNIR
+            sensorId: '550008'
+        - framename: SWIR
+          position: [0, 0, -0.2]
+          rotation: Rz(0.03deg)*Ry(0.13deg)*Rx(0.18deg)*Rz(180deg)
+          sensors:
+          - name: SWIR
+            sensorId: '410043'
+        - framename: pola
+          position: [0, 0, -0.35]
+          rotation: Rz(88.82deg)*Ry(16.67deg)*Rx(2.54deg)*Ry(0.2deg)
+          sensors:
+          - name: pola
+            sensorId: 'pola'
+        - framename: polb
+          position: [0, 0, -0.35]
+          rotation: Rz(91.40deg)*Ry(-19.42deg)*Rx(3.90deg)*Ry(0.2deg)
+          sensors:
+          - name: polb
+            sensorId: 'polb'
+      - framename: window
+        position: [-23, 0, 0]
+        rotation: Ry(-10.0deg)
+  - axesConvention: NED
+    framename: reference
+    rotation:
+    position: [50.5, 10.5, 0]
+platform: {commonName: HALO, name: D-ADLR, type: aircraft}
+type: mount tree
