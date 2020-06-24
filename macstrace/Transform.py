@@ -147,5 +147,6 @@ class Transformer(object):
     def transform(self, data):
         kdtree=Nearest_point(*self.get_points_on_cloud(self.sensor1))
         index=kdtree.nearest_index(*self.get_points_on_cloud(self.sensor2))
-        return self._isel_coord_multiindex(data, **{key:index.sel(fitdim=key) for key in data.dims})
+        result=self._isel_coord_multiindex(data, **{key:index.sel(fitdim=key) for key in data.dims})
+        return result.drop_vars('fitdim')
 
