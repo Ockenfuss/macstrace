@@ -90,7 +90,7 @@ class Nearest_point(object):
         self.fitshape=fitx.shape
         self.fitdims=fitx.dims
         print("Building up kdtree...")
-        self.nbs=NearestNeighbors(n_neighbors=1, algorithm='kd_tree', leaf_size=100).fit(self._flatten_combinexy(fitx.values,fity.values))
+        self.nbs=NearestNeighbors(n_neighbors=1, algorithm='auto').fit(self._flatten_combinexy(fitx.values,fity.values))
     
     def _flatten_combinexy(self,x,y):
         return np.column_stack((x.flatten(),y.flatten()))
