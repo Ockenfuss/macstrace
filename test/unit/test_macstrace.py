@@ -1,12 +1,14 @@
-from macstrace.Transform import Halo, Transformer
-from macstrace.Intersectors import Plane_intersector
+#%%
+from macstrace.Transform import Halo, Transformer, Nearest_point
+from macstrace.Shapes import Plane
 import numpy.testing as npt
 import unittest as ut
 import numpy as np
 import xarray as xr
+#%%
 class Test_CloudIntersector(ut.TestCase):
-    def test_Plane_intersector(self):
-        cloud=Plane_intersector(height=2000)
+    def test_Plane(self):
+        cloud=Plane(height=2000)
         v=np.array([1,0,1])
         v=v/np.linalg.norm(v)
         npt.assert_almost_equal(cloud.intersect(10,0,-10000,*v),[8010,0])
@@ -46,13 +48,26 @@ class TestHalo(ut.TestCase):
         trans2=halo.get_transform('sensor2', time)
         assert(trans1 is trans2 is halo.transform_cache['sensor2'][time])
 
+class TestNearest_Point(ut.TestCase):
+    def test_nearest(self):
+        x=xr.DataArray([[0,0.01],[1,1.01]], coords=[('x', [0,1]), ('y', [0,1])])
+        y=xr.DataArray([[0,1],[0.01,1.01]], coords=[('x', [0,1]), ('y', [0,1])])
+        evalx=xr.DataArray([-1,0,1,0,1], coords=[('a', [1,2,3,4,5])])
+        evaly=xr.DataArray([-1,0,0,1,1], coords=[('a', [1,2,3,4,5])])
+        kdtree=Nearest_point(x,y)
+        ind=kdtree.nearest_index(evalx, evaly)
+        self.assertCountEqual(ind.dims,('a','fitdim'))
+        self.assertCountEqual(ind.fitdim.values,('x', 'y'))
+        npt.assert_equal(ind.sel(fitdim='x').values, [0,0,1,0,1])
+        npt.assert_equal(ind.sel(fitdim='y').values, [0,0,0,1,1])
+
 class TestTransform(ut.TestCase):
     def setUp(self):
         self.mountfile='test/fixtures/mounttree.yaml'
         self.geomfile='test/fixtures/geometry.nc'
         self.vnirfile='test/fixtures/vnir.nc'
         self.swirfile='test/fixtures/swir.nc'
-        intersector=Plane_intersector(height=2000)
+        intersector=Plane(height=2000)
         self.transform=Transformer.from_files(self.mountfile, self.geomfile, self.vnirfile, self.swirfile, intersector)
     def test_isel_multiindex(self):
         da=xr.DataArray(np.arange(16).reshape((4,4)), coords=[('a',[1,2,3,4]),('b',[1,2,3,4])])

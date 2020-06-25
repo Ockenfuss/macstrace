@@ -83,30 +83,30 @@ class Halo(object):
         return position
 
 class Nearest_point(object):
-    def __init__(self, fitx, fity):
-        assert(fitx.dims==fity.dims)
-        assert(fitx.shape==fity.shape)
-        self.fitcoords=fitx.coords
-        self.fitshape=fitx.shape
-        self.fitdims=fitx.dims
+    def __init__(self, *xr_features):
+        assert(np.all([f.dims==xr_features[0].dims for f in xr_features]))
+        assert(np.all([f.shape==xr_features[0].shape for f in xr_features]))
+        self.fitcoords=xr_features[0].coords
+        self.fitshape=xr_features[0].shape
+        self.fitdims=xr_features[0].dims
         print("Building up kdtree...")
-        self.nbs=NearestNeighbors(n_neighbors=1, algorithm='auto').fit(self._flatten_combinexy(fitx.values,fity.values))
+        self.nbs=NearestNeighbors(n_neighbors=1, algorithm='auto').fit(self._flatten_combinexy(*tuple(map(lambda a:a.values, xr_features))))
     
-    def _flatten_combinexy(self,x,y):
-        return np.column_stack((x.flatten(),y.flatten()))
+    def _flatten_combinexy(self,*features):
+        return np.column_stack(tuple(map(lambda a:a.flatten(), features)))
 
-    def _predict_array(self,predictx,predicty):
-        assert(predictx.shape==predicty.shape)
-        n_ind=self.nbs.kneighbors(self._flatten_combinexy(predictx, predicty), return_distance=False).reshape(predictx.shape)
+    def _predict_array(self,*features):
+        assert(np.all([f.shape==features[0].shape for f in features]))
+        n_ind=self.nbs.kneighbors(self._flatten_combinexy(*features), return_distance=False).reshape(features[0].shape)
         return n_ind
     
     def _unravel_fitindex(self, index):
         return np.stack(np.unravel_index(index, shape=self.fitshape), axis=-1)
 
 
-    def nearest_index(self,x,y):
+    def nearest_index(self,*xr_features):
         print("Evaluating using kdtree...")
-        index=xr.apply_ufunc(self._predict_array,x,y)
+        index=xr.apply_ufunc(self._predict_array,*xr_features)
         index=xr.apply_ufunc(self._unravel_fitindex, index, output_core_dims=[['fitdim']])
         index.coords['fitdim']=('fitdim', list(self.fitdims))
         return index
@@ -127,19 +127,19 @@ class Sensor(object):
         return cls(data.alt, data.act, data.time, data.source_name)
 
 class Transformer(object):
-    def __init__(self,halo, intersector):
+    def __init__(self,halo, shape):
         self.halo=halo
-        self.intersector=intersector
+        self.shape=shape
 
     @classmethod
-    def from_files(cls,mounttreefile, orientationfile, sensor1file, sensor2file, intersector):
+    def from_files(cls,mounttreefile, orientationfile, sensor1file, sensor2file, shape):
         halo=Halo.from_files(mounttreefile, orientationfile, sensor1file, sensor2file)
-        return cls(halo, intersector)
+        return cls(halo, shape)
         
     @classmethod
-    def from_datasets(cls, mounttreefile, orientationfile, data1, data2, intersector):
+    def from_datasets(cls, mounttreefile, orientationfile, data1, data2, shape):
         halo=Halo.from_datasets(mounttreefile, orientationfile, data1, data2)
-        return cls(halo, intersector)
+        return cls(halo, shape)
 
     def get_points_on_cloud(self, sensor):
         print(f"Calculating directions for {sensor}...")
@@ -147,8 +147,8 @@ class Transformer(object):
         print(f"Calculating positions for {sensor}...")
         positions=self.halo.get_abs_view_position(sensor)
         print(f"Calculating intersections for {sensor}...")
-        x,y=self.intersector.intersect(positions.sel(coords='x'),positions.sel(coords='y'),positions.sel(coords='z'),directions.sel(coords='x'),directions.sel(coords='y'),directions.sel(coords='z'))
-        return x,y
+        intersections=self.shape.intersect(positions.sel(coords='x'),positions.sel(coords='y'),positions.sel(coords='z'),directions.sel(coords='x'),directions.sel(coords='y'),directions.sel(coords='z'))
+        return intersections
 
     def _isel_coord_multiindex(self, da, **kwargs):
         result=da.transpose(*kwargs.keys()).values[tuple([a.values for a in kwargs.values()])]
