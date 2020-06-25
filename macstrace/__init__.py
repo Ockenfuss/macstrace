@@ -6,7 +6,7 @@ import numpy as np
 
 
 
-def smacs1_to_smacs2(mountfile, orientationfile, data1, data2,intersector):
+def smacs1_to_smacs2(mountfile, orientationfile, data1, data2,shape):
     """Map radiance values observed from one SpecMacs sensor (vnir, swir) to the positions observed by the other based on cloud geometry and plane orientation."""
     blocksize=np.timedelta64(10, 's')
     offset=np.timedelta64(1, 's')
