@@ -23,7 +23,7 @@ class TestHalo(ut.TestCase):
         self.geomfile='test/fixtures/geometry.nc'
         self.vnirfile='test/fixtures/vnir.nc'
         self.swirfile='test/fixtures/swir.nc'
-        self.halo=Halo.from_files(self.mountfile, self.geomfile, self.vnirfile, self.swirfile)
+        self.halo=Halo.from_files(self.mountfile, self.geomfile, [self.vnirfile, self.swirfile])
 
     def test_dir_to_vza(self):
         angles=[0,30,90,120,180]
@@ -38,27 +38,27 @@ class TestHalo(ut.TestCase):
 
     def test_reference_transform(self):
         """Manually add reference frame. It is located at the surface, to halo height and sensor z position should always be roughly the same (times -1 due to NED)"""
-        halo=Halo.from_files(self.mountfile, self.geomfile, self.vnirfile, self.swirfile)
+        halo=Halo.from_files(self.mountfile, self.geomfile, [self.vnirfile, self.swirfile])
         halo._add_reference_frame(np.datetime64('2019-05-16T14:33:30'))
         time=np.datetime64('2019-05-16T14:33:50')
-        transform=halo.get_transform('sensor1',time)
+        transform=halo.get_transform('vnir',time)
         npt.assert_allclose(-1*halo.orientation['height'].sel(time=time, method='nearest'),transform.apply_point(0,0,0)[2], atol=2)
     
     def test_create_reference_frame(self):
         """Let Halo create the reference frame at the position of the first transformation request"""
-        halo=Halo.from_files(self.mountfile, self.geomfile, self.vnirfile, self.swirfile)
+        halo=Halo.from_files(self.mountfile, self.geomfile, [self.vnirfile, self.swirfile])
         time=np.datetime64('2019-05-16T14:33:50')
-        transform=halo.get_transform('sensor1',time)
+        transform=halo.get_transform('vnir',time)
         point=transform.apply_point(0,0,0)
         npt.assert_allclose(-1*halo.orientation['height'].sel(time=time, method='nearest'),point[2], atol=2)
         npt.assert_allclose([0,0], point[:2], atol=10)#Specmacs should be within about 10m distance to Bahamas
 
     def test_transform_cache(self):
-        halo=Halo.from_files(self.mountfile, self.geomfile, self.vnirfile, self.swirfile)
+        halo=Halo.from_files(self.mountfile, self.geomfile, [self.vnirfile, self.swirfile])
         time=np.datetime64('2019-05-16T14:33:50')
-        trans1=halo.get_transform('sensor2', time)
-        trans2=halo.get_transform('sensor2', time)
-        assert(trans1 is trans2 is halo.transform_cache['sensor2'][time])
+        trans1=halo.get_transform('swir', time)
+        trans2=halo.get_transform('swir', time)
+        assert(trans1 is trans2 is halo.transform_cache['swir'][time])
 
 class TestNearest_Point(ut.TestCase):
     def test_nearest(self):
@@ -79,8 +79,8 @@ class TestTransform(ut.TestCase):
         self.geomfile='test/fixtures/geometry.nc'
         self.vnirfile='test/fixtures/vnir.nc'
         self.swirfile='test/fixtures/swir.nc'
-        intersector=Plane(height=2000)
-        self.transform=Transformer.from_files(self.mountfile, self.geomfile, self.vnirfile, self.swirfile, intersector)
+        shape=Plane(height=2000)
+        self.transform=Transformer.from_files(self.mountfile, self.geomfile, self.vnirfile, self.swirfile, shape)
     def test_isel_multiindex(self):
         da=xr.DataArray(np.arange(16).reshape((4,4)), coords=[('a',[1,2,3,4]),('b',[1,2,3,4])])
         ai=xr.DataArray(np.array([[2,3],[1,2]]), coords=[('a', [5,6]), ('c',[7,8])])

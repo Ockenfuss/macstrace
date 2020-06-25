@@ -27,11 +27,11 @@ class Sensor(object):
         return cls(data.alt, data.act, data.time, data.source_name)
 
 class Halo(object):
-    def __init__(self, coord_universe,orientation, sensor1, sensor2):
+    def __init__(self, coord_universe,orientation, sensors):
         self.coord_universe=coord_universe
         self.orientation=orientation.sortby('time')
-        self.sensors={'sensor1':sensor1, 'sensor2':sensor2}
-        self.transform_cache={'sensor1':{}, 'sensor2':{}}
+        self.sensors={s.name:s for s in sensors}
+        self.transform_cache={s.name:{} for s in sensors}
         self.reference_available=False
     
     def _add_reference_frame(self, time):
@@ -43,16 +43,16 @@ class Halo(object):
         self.reference_available=True
 
     @classmethod
-    def from_files(cls, mounttreefile, bahamasfile, sensor1file, sensor2file):
+    def from_files(cls, mounttreefile, bahamasfile, sensorfiles):
         geometry=xr.open_dataset(bahamasfile)
         coord_universe=mounttree.load_mounttree(mounttreefile)
-        return cls(coord_universe, geometry, Sensor.from_file(sensor1file), Sensor.from_file(sensor2file))
+        return cls(coord_universe, geometry, [Sensor.from_file(f) for f in sensorfiles])
     
     @classmethod
-    def from_datasets(cls, mounttreefile, bahamasfile, data1, data2):
+    def from_datasets(cls, mounttreefile, bahamasfile, sensor_datasets):
         geometry=xr.open_dataset(bahamasfile)
         coord_universe=mounttree.load_mounttree(mounttreefile)
-        return cls(coord_universe, geometry, Sensor.from_dataset(data1), Sensor.from_dataset(data2))
+        return cls(coord_universe, geometry, [Sensor.from_dataset(d) for d in sensor_datasets])
 
     def _create_sensor_to_reference_transform(self,sensor, time):
         if not self.reference_available:
@@ -148,19 +148,21 @@ class Nearest_point(object):
 
 
 class Transformer(object):
-    def __init__(self,halo, shape):
+    def __init__(self,halo, sensor_from, sensor_to,shape):
         self.halo=halo
         self.shape=shape
+        self.sensor_from=sensor_from
+        self.sensor_to=sensor_to
 
     @classmethod
-    def from_files(cls,mounttreefile, orientationfile, sensor1file, sensor2file, shape):
-        halo=Halo.from_files(mounttreefile, orientationfile, sensor1file, sensor2file)
-        return cls(halo, shape)
+    def from_files(cls,mounttreefile, orientationfile, sensor_from, sensor_to, shape):
+        halo=Halo.from_files(mounttreefile, orientationfile, [sensor_from, sensor_to])
+        return cls(halo, Sensor.from_file(sensor_from), Sensor.from_file(sensor_to), shape)
         
     @classmethod
-    def from_datasets(cls, mounttreefile, orientationfile, data1, data2, shape):
-        halo=Halo.from_datasets(mounttreefile, orientationfile, data1, data2)
-        return cls(halo, shape)
+    def from_datasets(cls, mounttreefile, orientationfile, data_from, data_to, shape):
+        halo=Halo.from_datasets(mounttreefile, orientationfile, [data_from, data_to])
+        return cls(halo,Sensor.from_dataset(data_from), Sensor.from_dataset(data_to), shape)
 
     def get_points_on_cloud(self, sensor):
         print(f"Calculating directions for {sensor}...")
@@ -176,8 +178,8 @@ class Transformer(object):
         return xr.DataArray(result,coords=next(iter(kwargs.values())).coords)
 
     def transform(self, data):
-        kdtree=Nearest_point(*self.get_points_on_cloud('sensor1'))
-        index=kdtree.nearest_index(*self.get_points_on_cloud('sensor2'))
+        kdtree=Nearest_point(*self.get_points_on_cloud(self.sensor_from))
+        index=kdtree.nearest_index(*self.get_points_on_cloud(self.sensor_to))
         result=self._isel_coord_multiindex(data, **{key:index.sel(fitdim=key) for key in data.dims})
         return result.drop_vars('fitdim')
 
