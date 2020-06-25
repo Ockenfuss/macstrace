@@ -24,7 +24,7 @@ def smacs1_to_smacs2(mountfile, orientationfile, data1, data2,shape):
                 block_vnir=slice(starttime-offset, starttime+blocksize+offset)
                 d1=data1.sel(time=block_vnir).sel(wavelength=wvl_1, method='nearest')
                 d2=data2.sel(time=block_swir).sel(wavelength=wvl_2)
-                transform=Transformer.from_datasets(mountfile, orientationfile, d1, d2, intersector)
+                transform=Transformer.from_datasets(mountfile, orientationfile, d1, d2, shape)
                 dat1_corrected=transform.transform(d1.radiance)
                 timeframes.append(dat1_corrected)
             wvlframes.append(xr.concat(timeframes, dim='time'))
