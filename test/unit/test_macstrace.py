@@ -23,6 +23,18 @@ class TestHalo(ut.TestCase):
         self.geomfile='test/fixtures/geometry.nc'
         self.vnirfile='test/fixtures/vnir.nc'
         self.swirfile='test/fixtures/swir.nc'
+        self.halo=Halo.from_files(self.mountfile, self.geomfile, self.vnirfile, self.swirfile)
+
+    def test_dir_to_vza(self):
+        angles=[0,30,90,120,180]
+        vza=self.halo.dir_to_vza(np.cos(np.deg2rad(angles)))
+        npt.assert_allclose(angles, vza)
+    
+    def test_dir_to_vaa(self):
+        x=[1,0,-1,0]#NED:north, east, south, west
+        y=[0,1,0,-1]
+        vaa=[0,90,180,270]
+        npt.assert_allclose(self.halo.dir_to_vaa(x,y),vaa)
 
     def test_reference_transform(self):
         """Manually add reference frame. It is located at the surface, to halo height and sensor z position should always be roughly the same (times -1 due to NED)"""

@@ -11,6 +11,20 @@ import matplotlib.pyplot as plt
 import unittest as ut
 from collections import defaultdict
 #%%
+class Sensor(object):
+    def __init__(self, alt, act, times, name):
+        self.alt=alt
+        self.act=act
+        self.times=times
+        self.name=name
+    
+    @classmethod
+    def from_file(cls, sensorfile):
+        data=xr.open_dataset(sensorfile)
+        return cls.from_dataset(data)
+    @classmethod
+    def from_dataset(cls, data):
+        return cls(data.alt, data.act, data.time, data.source_name)
 
 class Halo(object):
     def __init__(self, coord_universe,orientation, sensor1, sensor2):
@@ -57,9 +71,15 @@ class Halo(object):
         return trans
     
     def altact_to_sensor(self,alt, act):
-        """Convert along and across track angle to dir. vectors. Input in degrees!!!."""
+        """Convert along and across track angle to dir. vectors. Input in degrees!"""
         return [np.sin(deg2rad(act)), np.sin(deg2rad(alt))*np.cos(deg2rad(act)), np.cos(deg2rad(alt))*np.cos(deg2rad(act))]
     
+    def dir_to_vza(self, vz):
+        return np.rad2deg(np.arccos(vz))
+    def dir_to_vaa(self, vx, vy):
+        """Convert viewing direction vector (in NED) to viewing azimuth angle (0deg north, 90deg east)"""
+        return np.rad2deg(np.arctan2(vy, vx))%360
+
     def _get_abs_view_direction_single(self, sensor, time):
         transform=self.get_transform(sensor, time)
         get_direction=lambda alt, act:np.stack(transform.apply_direction(*self.altact_to_sensor(alt,act)), axis=-1)
@@ -82,6 +102,21 @@ class Halo(object):
         position=xr.concat([self._get_abs_view_pos_single(sensor, time) for time in self.sensors[sensor].times.values], dim='time')
         return position
 
+    def get_abs_view_angles(self, sensor):
+        direction=self.get_abs_view_direction(sensor)
+        vaa=self.dir_to_vaa(direction.sel(coords='x'), direction.sel(coords='y'))
+        vaa.name='vaa'
+        vaa.attrs['units']='degree'
+        vaa.attrs['long_name']='viewing azimuth angle'
+        vaa.attrs['description']='North: 0°, East: 90°'
+        vza=self.dir_to_vza(direction.sel(coords='z'))
+        vza=vza.drop_vars('coords')
+        vza.name='vza'
+        vza.attrs['units']='degree'
+        vza.attrs['long_name']='viewing zenith angle'
+        vza.attrs['description']='Down: 0°, Up: 180°'
+        return xr.Dataset({'vaa':vaa, 'vza':vza})
+        
 class Nearest_point(object):
     def __init__(self, *xr_features):
         assert(np.all([f.dims==xr_features[0].dims for f in xr_features]))
@@ -111,20 +146,6 @@ class Nearest_point(object):
         index.coords['fitdim']=('fitdim', list(self.fitdims))
         return index
 
-class Sensor(object):
-    def __init__(self, alt, act, times, name):
-        self.alt=alt
-        self.act=act
-        self.times=times
-        self.name=name
-    
-    @classmethod
-    def from_file(cls, sensorfile):
-        data=xr.open_dataset(sensorfile)
-        return cls.from_dataset(data)
-    @classmethod
-    def from_dataset(cls, data):
-        return cls(data.alt, data.act, data.time, data.source_name)
 
 class Transformer(object):
     def __init__(self,halo, shape):
